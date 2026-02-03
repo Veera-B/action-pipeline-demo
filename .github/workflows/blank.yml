@@ -56,4 +56,4 @@ jobs:
 
       - name: Print version in logs
         run: |
-          echo "🚀 Released version: v-$VERSION"
+          echo "🚀 Released version: $TAG"
