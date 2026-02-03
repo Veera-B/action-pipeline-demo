@@ -1,9 +1,5 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Auto Tag Generator
-# Controls when the workflow will run
 
-  # Triggers the workflow on push or pull request events but only for the "main" branch
 on:
   push:
     branches:
@@ -15,39 +11,49 @@ permissions:
 jobs:
   tag:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - run: |
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # VERY IMPORTANT for tags
+
+      - name: Read & bump version
+        id: version
+        run: |
+          if [ ! -f VERSION ]; then
+            echo "VERSION file not found, creating 1.0.0"
+            echo "1.0.0" > VERSION
+          fi
+
           VERSION=$(cat VERSION)
-          git tag v-$VERSION
-          git push origin v-$VERSION
+          echo "Current version: $VERSION"
 
-#   # Allows you to run this workflow manually from the Actions tab
-#   workflow_dispatch:
-#     inputs:
-#       example_input:
-#         description: 'An example input'
-#         required: true
-#         default: 'default value'
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          PATCH=$((PATCH+1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
-# # A workflow run is made up of one or more jobs that can run sequentially or in parallel
-# jobs:
-#   # This workflow contains a single job called "build"
-#   build:
-#     # The type of runner that the job will run on
-#     runs-on: ubuntu-latest
+          echo "New version: $NEW_VERSION"
+          echo "$NEW_VERSION" > VERSION
 
-#     # Steps represent a sequence of tasks that will be executed as part of the job
-#     steps:
-#       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-#       - uses: actions/checkout@v4
+          echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
-#       # Runs a single command using the runners shell
-#       - name: Run a one-line script
-#         run: echo Hello, world!
+      - name: Commit VERSION bump
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add VERSION
+          git commit -m "chore: bump version to $VERSION"
 
-#       # Runs a set of commands using the runners shell
-#       - name: Run a multi-line script
-#         run: |
-#           echo Add other actions to build,
-#           echo test, and deploy your project.
+      - name: Create & push tag
+        run: |
+          TAG="v-$VERSION"
+          echo "Creating tag: $TAG"
+
+          git tag "$TAG"
+          git push origin main
+          git push origin "$TAG"
+
+      - name: Print version in logs
+        run: |
+          echo "🚀 Released version: v-$VERSION"
